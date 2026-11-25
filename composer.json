@@ -1,0 +1,19 @@
+{
+    "name": "mathsgod/light-io",
+    "description": "Text writers for PHP strings and streams",
+    "type": "library",
+    "require": {
+        "php": ">=8.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Light\\IO\\": "src/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    }
+}
