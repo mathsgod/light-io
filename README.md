@@ -13,10 +13,14 @@ use Light\IO\StringWriter;
 
 $writer = new StringWriter();
 $writer->write('Hello');
-$writer->write(' world');
+$writer->writeLine(' world');
 
-echo $writer->toString(); // Hello world
+echo $writer->toString();
 ```
+
+`writeLine()` appends the platform newline (`PHP_EOL`). Call it without text
+to append just a newline. Casting the writer to a string returns the same
+content as `toString()`.
 
 ## Write to a stream
 
@@ -61,6 +65,22 @@ It returns a `StreamWriter` that writes the exact bytes supplied. Call `close()`
 when finished to close the underlying stream. Calling `close()` again is safe.
 An empty path or a path containing a null byte throws `InvalidArgumentException`.
 If the file cannot be opened, `createText()` throws `RuntimeException`.
+
+## Read from a string
+
+```php
+require 'vendor/autoload.php';
+
+use Light\IO\StringReader;
+
+$reader = new StringReader("first\nsecond\nthird");
+$firstLine = $reader->readLine();     // 'first'
+$remaining = $reader->readToEnd();   // "second\nthird"
+```
+
+`StringReader` implements `TextReader` for strings already in memory.
+`readLine()` strips LF or CRLF and returns `null` at EOF.
+`readToEnd()` returns the remaining bytes as supplied. Each read advances the position.
 
 ## Open a text file
 

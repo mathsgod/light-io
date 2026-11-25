@@ -12,6 +12,19 @@ use RuntimeException;
 
 final class TextWriterTest extends TestCase
 {
+    public function testStringWriterWritesLinesAndCanBeCastToString(): void
+    {
+        $writer = new StringWriter();
+        $writer->write('first');
+        $writer->writeLine(' line');
+        $writer->writeLine();
+        $writer->write('last');
+
+        $expected = 'first line' . PHP_EOL . PHP_EOL . 'last';
+        self::assertSame($expected, $writer->toString());
+        self::assertSame($expected, (string) $writer);
+    }
+
     public function testStringWriterAccumulatesWritesInOrder(): void
     {
         $writer = new StringWriter();

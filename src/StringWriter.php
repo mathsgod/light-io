@@ -13,8 +13,18 @@ final class StringWriter implements TextWriter
         $this->text .= $text;
     }
 
+    public function writeLine(string $text = ''): void
+    {
+        $this->write($text . PHP_EOL);
+    }
+
     public function toString(): string
     {
         return $this->text;
+    }
+
+    public function __toString(): string
+    {
+        return $this->toString();
     }
 }
