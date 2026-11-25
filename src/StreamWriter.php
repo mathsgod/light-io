@@ -49,4 +49,11 @@ final class StreamWriter implements TextWriter
             $offset += $written;
         }
     }
+
+    public function close(): void
+    {
+        if (is_resource($this->stream) && !@fclose($this->stream)) {
+            throw new RuntimeException('Could not close the stream.');
+        }
+    }
 }
