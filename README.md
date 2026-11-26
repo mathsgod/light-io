@@ -2,11 +2,30 @@
 
 Light IO is a library for PHP 8.3 and later that provides text readers and writers inspired by Microsoft's `System.IO` namespace in .NET. Composer maps the `Light\IO` namespace to `src/` through PSR-4.
 
-Light IO currently provides synchronous I/O. Asynchronous I/O APIs are deferred.
-
 Both writers implement `TextWriter::write(string $text): void`. Each call writes the bytes you pass in, with no automatic newline or encoding conversion.
 
 [Browse the class guides](docs/README.md) for usage examples and platform requirements.
+
+## v1.0 limitations
+
+- **I/O execution**. Light IO provides synchronous I/O. Async methods,
+  cancellation tokens, and offset-based `RandomAccess` operations are outside
+  the v1.0 API.
+- **File sharing**. `FileShare::None` and read-only `FileShare::Read` use
+  `flock()`. On Unix, coordination requires participants to take compatible
+  locks. `FileShare::Write`, `Delete`, and combined sharing flags are unsupported.
+- **Permissions and attributes**. Unix mode bits and the Unix read-only
+  attribute are supported. Windows ACLs, native Windows attributes, and
+  setting flags such as `Hidden` and `Archive` are outside the supported scope.
+- **Filesystem monitoring**. `FileSystemWatcher` requires Linux and
+  `ext-inotify`. Windows and macOS watchers are unavailable. Rename events can
+  appear as separate deletion and creation events when split across batches.
+- **Text**. Encoded I/O supports UTF-8, UTF-16LE/BE, and UTF-32LE/BE. UTF-16
+  and UTF-32 require `ext-iconv`. Character counts use Unicode code points,
+  while .NET `char` counts UTF-16 code units.
+- **Paths and drives**. Windows device paths are unsupported. `DriveInfo`
+  reports capacity and available space for a known directory. Drive enumeration,
+  filesystem format, drive type, and volume labels are outside the API.
 
 ## Write to a string
 
