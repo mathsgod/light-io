@@ -2,6 +2,7 @@
     "name": "mathsgod/light-io",
     "description": "Text writers for PHP strings and streams",
     "type": "library",
+    "license": "MIT",
     "require": {
         "php": ">=8.3"
     },
