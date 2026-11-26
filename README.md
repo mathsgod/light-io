@@ -2,7 +2,11 @@
 
 Light IO is a library for PHP 8.3 and later that provides text readers and writers inspired by Microsoft's `System.IO` namespace in .NET. Composer maps the `Light\IO` namespace to `src/` through PSR-4.
 
+Light IO currently provides synchronous I/O. Asynchronous I/O APIs are deferred.
+
 Both writers implement `TextWriter::write(string $text): void`. Each call writes the bytes you pass in, with no automatic newline or encoding conversion.
+
+[Browse the class guides](docs/README.md) for usage examples and platform requirements.
 
 ## Write to a string
 
