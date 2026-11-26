@@ -7,13 +7,88 @@ namespace Light\IO\Tests;
 use InvalidArgumentException;
 use Light\IO\File;
 use Light\IO\FileAccess;
+use Light\IO\FileAttributes;
+use Light\IO\FileShare;
 use Light\IO\FileMode;
 use Light\IO\FileStream;
+use Light\IO\UnixFileMode;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 final class FileTest extends TestCase
 {
+    public function testSharingConflictDoesNotTruncateTheFile(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'light-io-');
+        try {
+            File::writeAllText($path, 'original');
+            $reader = File::open($path, FileMode::Open, FileAccess::Read, FileShare::Read);
+            $second = File::open($path, FileMode::Open, FileAccess::Read, FileShare::Read);
+            try {
+                try {
+                    File::open($path, FileMode::Create, share: FileShare::None);
+                    self::fail('Expected an exclusive lock conflict.');
+                } catch (RuntimeException) {
+                    self::assertSame('original', $reader->readToEnd());
+                }
+            } finally {
+                $second->close();
+                $reader->close();
+            }
+
+            $writer = File::open($path, FileMode::Create, share: FileShare::None);
+            try {
+                self::assertSame(0, $writer->length());
+            } finally {
+                $writer->close();
+            }
+        } finally {
+            unlink($path);
+        }
+    }
+
+    public function testAttributesPreserveReadAndExecutePermissions(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            self::markTestSkipped('These attributes use Unix file modes.');
+        }
+
+        $path = tempnam(sys_get_temp_dir(), '.light-io-');
+        try {
+            File::setUnixFileMode($path, 0750);
+            self::assertSame(FileAttributes::Hidden, File::getAttributes($path));
+            File::setAttributes($path, File::getAttributes($path) | FileAttributes::ReadOnly);
+            self::assertSame(FileAttributes::Hidden | FileAttributes::ReadOnly, File::getAttributes($path));
+            self::assertSame(0550, File::getUnixFileMode($path));
+            File::setAttributes($path, FileAttributes::Hidden);
+            self::assertSame(0750, File::getUnixFileMode($path));
+        } finally {
+            unlink($path);
+        }
+    }
+
+    public function testUnixModeReadsAndUpdatesPermissions(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $this->expectException(RuntimeException::class);
+            File::getUnixFileMode(__FILE__);
+            return;
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'light-io-');
+        try {
+            File::setUnixFileMode($path, UnixFileMode::UserRead | UnixFileMode::UserWrite | UnixFileMode::GroupRead);
+            self::assertSame(0640, File::getUnixFileMode($path));
+            File::setUnixFileMode($path, 01600);
+            self::assertSame(01600, File::getUnixFileMode($path));
+
+            $this->expectException(InvalidArgumentException::class);
+            File::setUnixFileMode($path, 0100000);
+        } finally {
+            unlink($path);
+        }
+    }
+
     public function testFileStreamResizesWithoutReadingStaleBufferedBytes(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'light-io-');

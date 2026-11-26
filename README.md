@@ -525,6 +525,46 @@ unresolved. Windows support covers drive and UNC paths, with drive-relative
 paths resolved against a base on the same drive. Windows device paths are
 outside this API's scope.
 
+## Read and set Unix permissions
+
+```php
+use Light\IO\File;
+use Light\IO\UnixFileMode;
+
+File::setUnixFileMode('notes.txt', UnixFileMode::UserRead | UnixFileMode::UserWrite | UnixFileMode::GroupRead);
+printf("%04o\n", File::getUnixFileMode('notes.txt')); // 0640
+```
+
+These methods work on Unix-like systems and follow symbolic links. The mode
+contains permission and special bits. The setter accepts octal values such as
+`0640` or a combination of `UnixFileMode` flags.
+
+## Share open files and read file attributes
+
+```php
+use Light\IO\File;
+use Light\IO\FileAccess;
+use Light\IO\FileAttributes;
+use Light\IO\FileMode;
+use Light\IO\FileShare;
+
+$stream = File::open('notes.txt', FileMode::Open, FileAccess::Read, FileShare::Read);
+$stream->close();
+
+File::setAttributes('notes.txt', File::getAttributes('notes.txt') | FileAttributes::ReadOnly);
+```
+
+Sharing is opt-in. `FileShare::None` requests an exclusive `flock()` and
+`FileShare::Read` requests a shared lock on a read-only stream. A conflicting
+lock fails immediately, and closing the stream releases its lock. Coordination
+requires participants to acquire compatible locks. `Write`, `ReadWrite`,
+`Delete`, and other combinations are unsupported by this locking API.
+
+On Unix-like systems, `getAttributes()` reports read-only mode, dotfile
+visibility, directories, and symbolic links. `setAttributes()` toggles the
+read-only flag on non-symlinks. Setting it removes all write bits, and clearing
+it adds the owner write bit. OS-specific flags such as `Archive` are unsupported.
+
 ## Run tests
 
 ```sh
