@@ -7,6 +7,7 @@ namespace Light\IO\Tests;
 use InvalidArgumentException;
 use Light\IO\DirectoryInfo;
 use Light\IO\FileInfo;
+use Light\IO\SearchOption;
 use Light\IO\FileSystemInfo;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -69,6 +70,37 @@ final class FileSystemInfoTest extends TestCase
             }
             if ($root->exists()) {
                 rmdir($root->fullName());
+            }
+        }
+    }
+
+    public function testGetDirectoriesFiltersNamesAtTheRequestedDepth(): void
+    {
+        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'light-io-' . bin2hex(random_bytes(8));
+        $root = new DirectoryInfo($path);
+        $top = $path . DIRECTORY_SEPARATOR . 'report1';
+        $branch = $path . DIRECTORY_SEPARATOR . 'branch';
+        $nested = $branch . DIRECTORY_SEPARATOR . 'report2';
+
+        try {
+            self::assertTrue(mkdir($top, recursive: true));
+            self::assertTrue(mkdir($nested, recursive: true));
+            self::assertCount(2, $root->getDirectories());
+            self::assertSame(['report1'], array_map(
+                static fn (DirectoryInfo $directory): string => $directory->name(),
+                $root->getDirectories('report?'),
+            ));
+            $matches = $root->getDirectories('report?', SearchOption::AllDirectories);
+            self::assertEqualsCanonicalizing([$top, $nested], array_map(
+                static fn (DirectoryInfo $directory): string => $directory->fullName(),
+                $matches,
+            ));
+            self::assertSame([], $root->getDirectories('missing*', SearchOption::AllDirectories));
+        } finally {
+            foreach ([$nested, $branch, $top, $path] as $directory) {
+                if (is_dir($directory)) {
+                    rmdir($directory);
+                }
             }
         }
     }

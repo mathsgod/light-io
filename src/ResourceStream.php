@@ -7,13 +7,13 @@ namespace Light\IO;
 use InvalidArgumentException;
 use RuntimeException;
 
-final class ResourceStream extends Stream
+class ResourceStream extends Stream
 {
     /** @var resource */
-    private readonly mixed $resource;
+    protected readonly mixed $resource;
 
     /** @param resource $resource */
-    public function __construct(mixed $resource)
+    public function __construct(mixed $resource, private readonly ?FileAccess $access = null)
     {
         if (!is_resource($resource) || get_resource_type($resource) !== 'stream') {
             throw new InvalidArgumentException('Expected an open stream resource.');
@@ -24,7 +24,7 @@ final class ResourceStream extends Stream
 
     public function canRead(): bool
     {
-        if (!is_resource($this->resource)) {
+        if (!is_resource($this->resource) || $this->access === FileAccess::Write) {
             return false;
         }
 
@@ -35,6 +35,7 @@ final class ResourceStream extends Stream
     public function canWrite(): bool
     {
         return is_resource($this->resource)
+            && $this->access !== FileAccess::Read
             && strpbrk(stream_get_meta_data($this->resource)['mode'], 'waxc+') !== false;
     }
 
@@ -49,7 +50,7 @@ final class ResourceStream extends Stream
             throw new InvalidArgumentException('Expected a non-negative byte count.');
         }
 
-        $this->ensureOpen();
+        $this->ensureReadable();
         if ($count === 0) {
             return '';
         }
@@ -64,7 +65,7 @@ final class ResourceStream extends Stream
 
     public function readLine(): ?string
     {
-        $this->ensureOpen();
+        $this->ensureReadable();
         $line = @fgets($this->resource);
         if ($line === false) {
             if (feof($this->resource)) {
@@ -79,7 +80,7 @@ final class ResourceStream extends Stream
 
     public function readToEnd(): string
     {
-        $this->ensureOpen();
+        $this->ensureReadable();
         $bytes = @stream_get_contents($this->resource);
         if ($bytes === false || !feof($this->resource)) {
             throw new RuntimeException('Could not read to the end of the stream.');
@@ -95,6 +96,10 @@ final class ResourceStream extends Stream
         }
 
         $this->ensureOpen();
+        if (!$this->canWrite()) {
+            throw new RuntimeException('The stream is not writable.');
+        }
+
         $length = strlen($bytes);
         $offset = 0;
         while ($offset < $length) {
@@ -141,7 +146,15 @@ final class ResourceStream extends Stream
         }
     }
 
-    private function ensureOpen(): void
+    private function ensureReadable(): void
+    {
+        $this->ensureOpen();
+        if (!$this->canRead()) {
+            throw new RuntimeException('The stream is not readable.');
+        }
+    }
+
+    final protected function ensureOpen(): void
     {
         if (!is_resource($this->resource)) {
             throw new RuntimeException('The stream is closed.');

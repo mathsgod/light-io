@@ -168,6 +168,22 @@ at construction. `fullName()` returns the absolute path without resolving symbol
 `FileInfo` or `DirectoryInfo` objects, and `delete()` for empty directories.
 Failed operations, including reading metadata for a missing entry, throw `RuntimeException`.
 
+`DirectoryInfo::getDirectories()` returns a list of immediate child directories
+by default. Pass a name pattern with `*` or `?` and use
+`SearchOption::AllDirectories` to search nested directories.
+
+```php
+use Light\IO\DirectoryInfo;
+use Light\IO\SearchOption;
+
+$directory = new DirectoryInfo('output');
+$drafts = $directory->getDirectories('draft*', SearchOption::AllDirectories);
+```
+
+`enumerateDirectories()` accepts the same arguments and yields results lazily.
+Matching directory symlinks can appear in the results. Recursive searches skip
+their contents.
+
 ## Check disk space
 
 ```php
@@ -314,6 +330,49 @@ try {
 `ReadOnlyMemoryStream` takes a PHP string and starts reading at byte offset zero.
 It supports `seek()` and `tell()`. Reads at or beyond the end return an empty
 string, and writes throw `RuntimeException`.
+
+## Read, write, and move files
+
+```php
+use Light\IO\File;
+use Light\IO\FileAccess;
+use Light\IO\FileMode;
+
+File::writeAllLines('notes.txt', ['First line', 'Second line']);
+File::appendAllText('notes.txt', 'Last line');
+foreach (File::readLines('notes.txt') as $line) {
+    echo $line, PHP_EOL;
+}
+
+File::copy('notes.txt', 'notes.bak', overwrite: true);
+$stream = File::open('notes.bak', FileMode::Open, FileAccess::Read);
+try {
+    echo $stream->readToEnd();
+} finally {
+    $stream->close();
+}
+```
+
+`readAllText()`, `writeAllText()` and the byte methods use PHP strings as-is.
+The line methods read LF and CRLF and write the platform newline. `readLines()`
+opens the file when iteration starts. `copy()` and `move()` default to refusing
+an existing destination. Moving without overwrite requires source and
+destination on a filesystem that supports hard links between those paths.
+`delete()` accepts a missing file, and `exists()` checks for a regular file.
+
+`create()` resets the file and opens it for reading and writing. `openRead()`
+opens an existing file for reading, and `openWrite()` opens or creates a file
+for writing while preserving existing bytes. `File::open()` also supports
+exclusive creation, truncating an existing file, and append mode. Opening or
+truncating an existing file with explicit write-only access requires OS read
+and write permissions because PHP opens it in `r+b` mode internally.
+
+`File::open()`, `create()`, `openRead()`, and `openWrite()` return a
+`FileStream`. You can also construct one directly with
+`new FileStream($path, FileMode::Open, FileAccess::ReadWrite)`. Use `length()`
+to get the file size in bytes and `setLength($bytes)` to resize a writable
+file. Resizing preserves the current byte position, even if the file shrinks
+past that position.
 
 ## Run tests
 
