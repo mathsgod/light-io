@@ -15,5 +15,8 @@
     },
     "scripts": {
         "test": "phpunit"
+    },
+    "suggest": {
+        "ext-inotify": "Enables native Linux filesystem notifications through FileSystemWatcher."
     }
 }

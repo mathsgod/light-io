@@ -433,6 +433,32 @@ Use `seek()` to change position and `setLength()` to resize the stream. Writes
 beyond the end and length increases fill new gaps with zero bytes. `toString()`
 returns the entire buffer, independent of position, even after `close()`.
 
+## Watch a directory for changes
+
+```php
+use Light\IO\FileSystemWatcher;
+
+$watcher = new FileSystemWatcher('uploads', includeSubdirectories: true);
+try {
+    foreach ($watcher->readEvents(1000) as $event) {
+        echo $event->type->name, ' ', $event->path, PHP_EOL;
+    }
+} finally {
+    $watcher->close();
+}
+```
+
+`FileSystemWatcher` uses the optional Linux `ext-inotify` extension. A worker
+can call `readEvents()` repeatedly. The timeout is in milliseconds and defaults
+to zero for a non-blocking check. Events report creation, modification, deletion,
+and renames. Paired renames include `oldPath`. Rename halves reported in
+different batches can appear as separate creation and deletion events.
+
+Recursive monitoring skips directory symlinks and adds new directories when
+events are read. Scan a new directory if you also need to find entries created
+before its watch was registered. Queue overflow or loss of the watched root
+closes the watcher and throws `RuntimeException`.
+
 ## Run tests
 
 ```sh
