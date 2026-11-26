@@ -1,6 +1,6 @@
 # light-io
 
-Text readers and writers for PHP 8.3 and later. Composer maps the `Light\IO` namespace to `src/` through PSR-4.
+Light IO is a library for PHP 8.3 and later that provides text readers and writers inspired by Microsoft's `System.IO` namespace in .NET. Composer maps the `Light\IO` namespace to `src/` through PSR-4.
 
 Both writers implement `TextWriter::write(string $text): void`. Each call writes the bytes you pass in, with no automatic newline or encoding conversion.
 
@@ -167,6 +167,78 @@ at construction. `fullName()` returns the absolute path without resolving symbol
 `DirectoryInfo` provides `create()`, lazy enumeration of immediate children as
 `FileInfo` or `DirectoryInfo` objects, and `delete()` for empty directories.
 Failed operations, including reading metadata for a missing entry, throw `RuntimeException`.
+
+## Check disk space
+
+```php
+require 'vendor/autoload.php';
+
+use Light\IO\DriveInfo;
+
+$drive = new DriveInfo(__DIR__);
+echo $drive->getTotalSize(), ' bytes total', PHP_EOL;
+echo $drive->getAvailableFreeSpace(), ' bytes available', PHP_EOL;
+```
+
+Pass an existing local directory, such as `/var/log` on Linux or `C:\` on
+Windows. `DriveInfo` resolves the directory at construction and reports space
+for the filesystem that contains it. Both methods query the filesystem on each
+call and return bytes as a `float`, matching PHP's disk-space functions.
+Empty paths and paths containing null bytes throw `InvalidArgumentException`.
+An unresolvable directory or a failed space query throws `RuntimeException`.
+
+## Write binary data
+
+```php
+require 'vendor/autoload.php';
+
+use Light\IO\BinaryWriter;
+
+$stream = fopen('php://temp', 'w+b');
+$writer = new BinaryWriter($stream);
+try {
+    $writer->writeInt32(42);
+    $writer->writeBoolean(true);
+    $writer->writeString('Hi');
+    rewind($stream);
+    echo bin2hex(stream_get_contents($stream)), PHP_EOL;
+} finally {
+    $writer->close();
+}
+```
+
+The example outputs `2a00000001024869`. `writeInt32()` writes a signed
+little-endian integer, `writeBoolean()` writes one byte, and `writeString()`
+writes UTF-8 bytes preceded by their byte count as a 7-bit encoded integer.
+Use `writeBytes()` for raw bytes without a length prefix. Open file streams in
+binary mode. `close()` closes the underlying stream.
+
+## Read binary data
+
+```php
+require 'vendor/autoload.php';
+
+use Light\IO\BinaryReader;
+
+$stream = fopen('php://temp', 'w+b');
+fwrite($stream, hex2bin('2a00000001024869'));
+rewind($stream);
+
+$reader = new BinaryReader($stream);
+try {
+    $number = $reader->readInt32();  // 42
+    $flag = $reader->readBoolean();  // true
+    $text = $reader->readString();   // 'Hi'
+} finally {
+    $reader->close();
+}
+```
+
+Read values in the same order and types used to write them. The typed methods
+throw `RuntimeException` if a value is truncated or its string data is invalid.
+`readBytes($count)` returns up to the requested number of raw bytes and may
+return fewer at end of stream. A negative count throws `InvalidArgumentException`.
+Open file streams in binary mode. `close()` closes the underlying stream.
 
 ## Run tests
 
