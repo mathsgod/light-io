@@ -12,8 +12,10 @@ final class BinaryReader
     private readonly Stream $stream;
 
     /** @param Stream|resource $stream */
-    public function __construct(mixed $stream)
+    public function __construct(mixed $stream, private readonly TextEncoding $encoding = TextEncoding::Utf8)
     {
+        EncodedText::requireSupport($encoding);
+
         $this->stream = $stream instanceof Stream ? $stream : Stream::fromResource($stream);
         if (!$this->stream->canRead()) {
             throw new InvalidArgumentException('Expected a readable stream.');
@@ -22,17 +24,17 @@ final class BinaryReader
 
     public function readInt32(): int
     {
-        return self::signedInt32(unpack('V', $this->readExactly(4))[1]);
+        return self::signedInt32(unpack('V', $this->stream->readExactly(4))[1]);
     }
 
     public function readByte(): int
     {
-        return ord($this->readExactly(1));
+        return ord($this->stream->readExactly(1));
     }
 
     public function readSByte(): int
     {
-        return unpack('c', $this->readExactly(1))[1];
+        return unpack('c', $this->stream->readExactly(1))[1];
     }
 
     public function readInt16(): int
@@ -44,21 +46,21 @@ final class BinaryReader
 
     public function readUInt16(): int
     {
-        return unpack('v', $this->readExactly(2))[1];
+        return unpack('v', $this->stream->readExactly(2))[1];
     }
 
     public function readUInt32(): int
     {
         self::require64Bit();
 
-        return unpack('V', $this->readExactly(4))[1];
+        return unpack('V', $this->stream->readExactly(4))[1];
     }
 
     public function readInt64(): int
     {
         self::require64Bit();
 
-        return unpack('P', $this->readExactly(8))[1];
+        return unpack('P', $this->stream->readExactly(8))[1];
     }
 
     public function readUInt64(): string
@@ -66,14 +68,24 @@ final class BinaryReader
         return sprintf('%u', $this->readInt64());
     }
 
+    public function readHalf(): float
+    {
+        return BinaryHalf::decode($this->readUInt16());
+    }
+
+    public function readDecimal(): string
+    {
+        return BinaryDecimal::decode($this->stream->readExactly(16));
+    }
+
     public function readSingle(): float
     {
-        return unpack('g', $this->readExactly(4))[1];
+        return unpack('g', $this->stream->readExactly(4))[1];
     }
 
     public function readDouble(): float
     {
-        return unpack('e', $this->readExactly(8))[1];
+        return unpack('e', $this->stream->readExactly(8))[1];
     }
 
     public function read7BitEncodedInt(): int
@@ -90,18 +102,33 @@ final class BinaryReader
 
     public function readBoolean(): bool
     {
-        return $this->readExactly(1) !== "\0";
+        return $this->stream->readExactly(1) !== "\0";
     }
 
     public function readString(): string
     {
         $length = $this->read7BitInteger(28, 7, 'Invalid 32-bit string length prefix.');
-        $value = $this->readExactly($length);
-        if (preg_match('//u', $value) !== 1) {
-            throw new RuntimeException('The stream contains an invalid UTF-8 string.');
+        return EncodedText::decode($this->stream->readExactly($length), $this->encoding);
+    }
+
+    public function readChar(): string
+    {
+        return EncodedText::readChar($this->readBytes(...), $this->encoding)
+            ?? throw new RuntimeException('Unexpected end of stream.');
+    }
+
+    public function readChars(int $count): string
+    {
+        if ($count < 0) {
+            throw new InvalidArgumentException('Expected a non-negative character count.');
         }
 
-        return $value;
+        $text = '';
+        while ($count-- > 0 && ($character = EncodedText::readChar($this->readBytes(...), $this->encoding)) !== null) {
+            $text .= $character;
+        }
+
+        return $text;
     }
 
     public function readBytes(int $count): string
@@ -162,15 +189,5 @@ final class BinaryReader
         if (PHP_INT_SIZE < 8) {
             throw new RuntimeException('This binary operation requires 64-bit PHP.');
         }
-    }
-
-    private function readExactly(int $count): string
-    {
-        $bytes = $this->readBytes($count);
-        if (strlen($bytes) !== $count) {
-            throw new RuntimeException('Unexpected end of stream.');
-        }
-
-        return $bytes;
     }
 }

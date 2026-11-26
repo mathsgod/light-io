@@ -55,6 +55,51 @@ final class BinaryNumericTest extends TestCase
         self::assertSame(PHP_INT_MIN, $reader->read7BitEncodedInt64());
     }
 
+    public function testHalfRoundingAndSpecialValues(): void
+    {
+        $stream = new MemoryStream();
+        $writer = new BinaryWriter($stream);
+        foreach ([-0.0, 2 ** -25, 2 ** -24, 1 + 2 ** -11, 1 + 3 * 2 ** -11, 65504.0, 65520.0, -INF] as $value) {
+            $writer->writeHalf($value);
+        }
+
+        self::assertSame('008000000100003c023cff7b007c00fc', bin2hex($stream->toString()));
+        $reader = new BinaryReader(new MemoryStream(hex2bin('00800100023c007c00fc007e')));
+        self::assertSame(-INF, fdiv(1.0, $reader->readHalf()));
+        self::assertSame(2 ** -24, $reader->readHalf());
+        self::assertSame(1 + 2 ** -9, $reader->readHalf());
+        self::assertSame(INF, $reader->readHalf());
+        self::assertSame(-INF, $reader->readHalf());
+        self::assertTrue(is_nan($reader->readHalf()));
+    }
+
+    public function testDecimalPreservesPrecisionAndScale(): void
+    {
+        $stream = new MemoryStream();
+        $writer = new BinaryWriter($stream);
+        $writer->writeDecimal('-0.10');
+        $writer->writeDecimal('79228162514264337593543950335');
+        $writer->writeDecimal('-0.000');
+        self::assertSame('0a000000000000000000000000000280ffffffffffffffffffffffff00000000'
+            . '00000000000000000000000000000380', bin2hex($stream->toString()));
+
+        $stream->seek(0);
+        $reader = new BinaryReader($stream);
+        self::assertSame('-0.10', $reader->readDecimal());
+        self::assertSame('79228162514264337593543950335', $reader->readDecimal());
+        self::assertSame('-0.000', $reader->readDecimal());
+
+        $this->expectException(InvalidArgumentException::class);
+        $writer->writeDecimal('79228162514264337593543950336');
+    }
+
+    public function testRejectsInvalidDecimalFlags(): void
+    {
+        $reader = new BinaryReader(new MemoryStream(str_repeat("\0", 14) . "\x1D\0"));
+        $this->expectException(RuntimeException::class);
+        $reader->readDecimal();
+    }
+
     public function testRejectsUInt64OverflowWithoutWriting(): void
     {
         if (PHP_INT_SIZE < 8) {

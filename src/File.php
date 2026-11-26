@@ -20,19 +20,23 @@ final class File
         return self::open($path, FileMode::Create);
     }
 
-    public static function createText(string $path): StreamWriter
+    public static function createText(string $path, ?TextEncoding $encoding = null): StreamWriter
     {
-        return new StreamWriter(self::open($path, FileMode::Create, FileAccess::Write));
+        EncodedText::requireSupport($encoding ?? TextEncoding::Utf8);
+
+        return new StreamWriter(self::open($path, FileMode::Create, FileAccess::Write), $encoding);
     }
 
-    public static function openText(string $path): StreamReader
+    public static function openText(string $path, ?TextEncoding $encoding = null, bool $detectBom = false): StreamReader
     {
-        return new StreamReader(self::openRead($path));
+        return new StreamReader(self::openRead($path), $encoding, $detectBom);
     }
 
-    public static function appendText(string $path): StreamWriter
+    public static function appendText(string $path, ?TextEncoding $encoding = null): StreamWriter
     {
-        return new StreamWriter(self::open($path, FileMode::Append, FileAccess::Write));
+        EncodedText::requireSupport($encoding ?? TextEncoding::Utf8);
+
+        return new StreamWriter(self::open($path, FileMode::Append, FileAccess::Write), $encoding);
     }
 
     public static function openRead(string $path): FileStream
@@ -209,7 +213,8 @@ final class File
         $output = self::open($destination, FileMode::CreateNew, FileAccess::Write);
         try {
             try {
-                self::copyBytes($input, $output);
+                $input->copyTo($output);
+                $output->flush();
             } finally {
                 $output->close();
             }
@@ -237,15 +242,6 @@ final class File
                 @unlink($temporary);
             }
         }
-    }
-
-    private static function copyBytes(Stream $input, Stream $output): void
-    {
-        while (($bytes = $input->read(8192)) !== '') {
-            $output->write($bytes);
-        }
-
-        $output->flush();
     }
 
     private static function validatePath(string $path): void

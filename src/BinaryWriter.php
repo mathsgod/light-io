@@ -12,8 +12,9 @@ final class BinaryWriter
     private readonly StreamWriter $writer;
 
     /** @param Stream|resource $stream */
-    public function __construct(mixed $stream)
+    public function __construct(mixed $stream, private readonly TextEncoding $encoding = TextEncoding::Utf8)
     {
+        EncodedText::requireSupport($encoding);
         $this->writer = new StreamWriter($stream);
     }
 
@@ -78,6 +79,16 @@ final class BinaryWriter
         $this->writeBytes(pack('V2', $low, $high));
     }
 
+    public function writeHalf(float $value): void
+    {
+        $this->writeUInt16(BinaryHalf::encode($value));
+    }
+
+    public function writeDecimal(string $value): void
+    {
+        $this->writeBytes(BinaryDecimal::encode($value));
+    }
+
     public function writeSingle(float $value): void
     {
         $this->writeBytes(pack('g', $value));
@@ -106,17 +117,25 @@ final class BinaryWriter
 
     public function writeString(string $value): void
     {
+        $value = EncodedText::encode($value, $this->encoding);
         $length = strlen($value);
         if ($length > 2147483647) {
             throw new InvalidArgumentException('The string is too long for a 32-bit length prefix.');
         }
 
-        if (preg_match('//u', $value) !== 1) {
-            throw new InvalidArgumentException('Expected a valid UTF-8 string.');
-        }
-
         $this->write7BitEncodedInt($length);
         $this->writeBytes($value);
+    }
+
+    public function writeChar(string $character): void
+    {
+        EncodedText::validateChar($character);
+        $this->writeChars($character);
+    }
+
+    public function writeChars(string $characters): void
+    {
+        $this->writeBytes(EncodedText::encode($characters, $this->encoding));
     }
 
     public function writeBytes(string $bytes): void

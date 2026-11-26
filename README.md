@@ -264,6 +264,45 @@ order. `UInt64` values use decimal strings such as `'18446744073709551615'`.
 `read7BitEncodedInt()` and `write7BitEncodedInt()` handle signed 32-bit
 values, with `Int64` variants for signed 64-bit values.
 
+`readHalf()` and `writeHalf()` use little-endian IEEE 754 binary16 with
+rounding to nearest, ties to even. `readDecimal()` and `writeDecimal()` use
+the .NET 16-byte decimal format. Pass decimal values as strings such as
+`'-0.10'` to preserve precision and scale. Decimal values must fit a 96-bit
+coefficient with at most 28 fractional digits.
+
+## Read and write Unicode text
+
+```php
+use Light\IO\File;
+use Light\IO\TextEncoding;
+
+$reader = File::openText('report.txt', TextEncoding::Utf8, detectBom: true);
+try {
+    $first = $reader->readChar();
+    $next = $reader->readChars(10);
+} finally {
+    $reader->close();
+}
+```
+
+`StreamReader` and `StreamWriter` accept a `TextEncoding` for UTF-8, UTF-16LE,
+UTF-16BE, UTF-32LE, or UTF-32BE. UTF-16 and UTF-32 require PHP's `iconv`
+extension. Reader text and writer input are UTF-8 in encoded mode. Existing
+text methods preserve raw bytes when neither encoding nor detection is selected.
+`readChar()` and `readChars()` count Unicode code points, so `😀` counts as
+one. A text reader's `readChar()` returns `null` at EOF.
+
+With `detectBom: true`, `StreamReader` checks the start of the input, strips a
+recognized BOM, and uses its encoding. Otherwise it uses the selected encoding
+or UTF-8 if none was supplied. `StreamWriter::writeChar()` writes one code point.
+Writers do not emit a BOM automatically.
+
+`BinaryReader` and `BinaryWriter` accept the same encodings and default to
+UTF-8. `readChar()` throws at EOF, while `readChars()` can return fewer code
+points. `writeChar()` and `writeChars()` write encoded bytes without a length
+prefix. `writeString()` still prefixes the encoded byte count. Binary streams
+use the supplied encoding directly, including when the data starts with a BOM.
+
 ## Work with streams
 
 ```php
@@ -293,6 +332,12 @@ read, write, seek, position, and flush operations. Use `canRead()`, `canWrite()`
 and `canSeek()` to check capabilities. `StreamReader`, `StreamWriter`,
 `BinaryReader`, and `BinaryWriter` accept either a `Stream` or a PHP stream
 resource. Closing any of them closes its underlying stream.
+
+Use `$source->copyTo($destination)` to copy from the current source position
+to the current destination position in 8192-byte chunks by default. The copy
+keeps both streams open. Flush the destination when writing through a buffer.
+Use `$stream->readExactly($count)` to collect exactly that many bytes. If the
+stream ends early, it throws `RuntimeException` after consuming the bytes read.
 
 ## Buffer stream reads and writes
 
@@ -458,6 +503,27 @@ Recursive monitoring skips directory symlinks and adds new directories when
 events are read. Scan a new directory if you also need to find entries created
 before its watch was registered. Queue overflow or loss of the watched root
 closes the watcher and throws `RuntimeException`.
+
+## Work with path strings
+
+```php
+use Light\IO\Path;
+
+$path = Path::combine('uploads', 'report.csv');
+$name = Path::getFileName($path); // report.csv
+$extension = Path::getExtension($path); // .csv
+$json = Path::changeExtension($path, 'json');
+$absolute = Path::getFullPath($json, __DIR__);
+$relative = Path::getRelativePath(__DIR__, $absolute);
+```
+
+`Path` uses the host platform's separators and root rules. `combine()` starts
+over when a rooted component appears. `getFullPath()` resolves relative paths
+against the current working directory or an explicit absolute base and removes
+`.` and `..` segments. It works with missing files and leaves symbolic links
+unresolved. Windows support covers drive and UNC paths, with drive-relative
+paths resolved against a base on the same drive. Windows device paths are
+outside this API's scope.
 
 ## Run tests
 
