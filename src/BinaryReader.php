@@ -9,22 +9,15 @@ use RuntimeException;
 
 final class BinaryReader
 {
-    /** @var resource */
-    private readonly mixed $stream;
+    private readonly Stream $stream;
 
-    /** @param resource $stream */
+    /** @param Stream|resource $stream */
     public function __construct(mixed $stream)
     {
-        if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
-            throw new InvalidArgumentException('Expected an open stream resource.');
-        }
-
-        $mode = stream_get_meta_data($stream)['mode'];
-        if (!str_starts_with($mode, 'r') && !str_contains($mode, '+')) {
+        $this->stream = $stream instanceof Stream ? $stream : Stream::fromResource($stream);
+        if (!$this->stream->canRead()) {
             throw new InvalidArgumentException('Expected a readable stream.');
         }
-
-        $this->stream = $stream;
     }
 
     public function readInt32(): int
@@ -68,19 +61,15 @@ final class BinaryReader
             throw new InvalidArgumentException('Expected a non-negative byte count.');
         }
 
-        if (!is_resource($this->stream)) {
-            throw new RuntimeException('The stream is closed.');
+        if ($count === 0) {
+            return $this->stream->read(0);
         }
 
         $bytes = '';
         while ($count > 0) {
-            $chunk = @fread($this->stream, min($count, 8192));
-            if ($chunk === '' && feof($this->stream)) {
+            $chunk = $this->stream->read(min($count, 8192));
+            if ($chunk === '') {
                 break;
-            }
-
-            if ($chunk === false || $chunk === '') {
-                throw new RuntimeException('Could not finish reading from the stream.');
             }
 
             $bytes .= $chunk;
@@ -92,9 +81,7 @@ final class BinaryReader
 
     public function close(): void
     {
-        if (is_resource($this->stream) && !@fclose($this->stream)) {
-            throw new RuntimeException('Could not close the stream.');
-        }
+        $this->stream->close();
     }
 
     private function readExactly(int $count): string

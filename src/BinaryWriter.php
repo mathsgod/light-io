@@ -10,7 +10,7 @@ final class BinaryWriter
 {
     private readonly StreamWriter $writer;
 
-    /** @param resource $stream */
+    /** @param Stream|resource $stream */
     public function __construct(mixed $stream)
     {
         $this->writer = new StreamWriter($stream);

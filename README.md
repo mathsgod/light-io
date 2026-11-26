@@ -240,6 +240,81 @@ throw `RuntimeException` if a value is truncated or its string data is invalid.
 return fewer at end of stream. A negative count throws `InvalidArgumentException`.
 Open file streams in binary mode. `close()` closes the underlying stream.
 
+## Work with streams
+
+```php
+require 'vendor/autoload.php';
+
+use Light\IO\BinaryReader;
+use Light\IO\BinaryWriter;
+use Light\IO\Stream;
+
+$stream = Stream::fromResource(fopen('php://temp', 'w+b'));
+try {
+    $writer = new BinaryWriter($stream);
+    $writer->writeInt32(42);
+    $stream->flush();
+    $stream->seek(0);
+
+    $reader = new BinaryReader($stream);
+    echo $reader->readInt32(), PHP_EOL;
+} finally {
+    $stream->close();
+}
+```
+
+Extend the abstract `Stream` class to provide a different byte source or
+destination. `Stream::fromResource()` adapts a PHP stream resource and exposes
+read, write, seek, position, and flush operations. Use `canRead()`, `canWrite()`,
+and `canSeek()` to check capabilities. `StreamReader`, `StreamWriter`,
+`BinaryReader`, and `BinaryWriter` accept either a `Stream` or a PHP stream
+resource. Closing any of them closes its underlying stream.
+
+## Buffer stream reads and writes
+
+```php
+require 'vendor/autoload.php';
+
+use Light\IO\BufferedStream;
+
+$stream = new BufferedStream(fopen('php://temp', 'w+b'));
+try {
+    $stream->write('Hello');
+    $stream->write(' world');
+    $stream->seek(0);
+    echo $stream->readToEnd(), PHP_EOL;
+} finally {
+    $stream->close();
+}
+```
+
+`BufferedStream` accepts a `Stream` or PHP stream resource and defaults to a
+4096-byte buffer. It batches small writes and reads ahead for small reads.
+`flush()`, `seek()`, and `close()` write any pending bytes. `close()` also
+closes the underlying stream. `tell()` accounts for bytes held in the buffer.
+Switching from reading to writing with unread buffered bytes requires a
+seekable stream. Pass `BufferedStream` directly to a reader or writer.
+
+## Read bytes already in memory
+
+```php
+require 'vendor/autoload.php';
+
+use Light\IO\BinaryReader;
+use Light\IO\ReadOnlyMemoryStream;
+
+$reader = new BinaryReader(new ReadOnlyMemoryStream("\x2A\x00\x00\x00\x02Hi"));
+try {
+    echo $reader->readInt32(), ' ', $reader->readString(), PHP_EOL;
+} finally {
+    $reader->close();
+}
+```
+
+`ReadOnlyMemoryStream` takes a PHP string and starts reading at byte offset zero.
+It supports `seek()` and `tell()`. Reads at or beyond the end return an empty
+string, and writes throw `RuntimeException`.
+
 ## Run tests
 
 ```sh
