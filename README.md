@@ -256,6 +256,14 @@ throw `RuntimeException` if a value is truncated or its string data is invalid.
 return fewer at end of stream. A negative count throws `InvalidArgumentException`.
 Open file streams in binary mode. `close()` closes the underlying stream.
 
+The binary reader and writer also support `Byte`, `SByte`, `Int16`, `UInt16`,
+`UInt32`, `Int64`, `UInt64`, `Single`, and `Double` through corresponding
+`read*()` and `write*()` methods. Multi-byte numbers use little-endian byte
+order. `UInt64` values use decimal strings such as `'18446744073709551615'`.
+`UInt32` and all 64-bit integer methods require 64-bit PHP.
+`read7BitEncodedInt()` and `write7BitEncodedInt()` handle signed 32-bit
+values, with `Int64` variants for signed 64-bit values.
+
 ## Work with streams
 
 ```php
@@ -400,6 +408,30 @@ stream length and the fixed capacity. Writes update the original variable.
 `setLength()` changes the readable length within that capacity and zero-fills
 newly exposed bytes. Avoid resizing the backing string while the stream is open.
 Closing the stream releases the reference and leaves the bytes in the variable.
+
+## Write to an expandable stream in memory
+
+```php
+use Light\IO\BinaryWriter;
+use Light\IO\MemoryStream;
+
+$stream = new MemoryStream();
+$writer = new BinaryWriter($stream);
+try {
+    $writer->writeInt32(42);
+    $writer->writeString('Hi');
+} finally {
+    $writer->close();
+}
+
+echo bin2hex($stream->toString()), PHP_EOL; // 2a000000024869
+```
+
+`MemoryStream` starts empty or takes an optional string of initial bytes.
+Writes start at byte offset zero and automatically grow the stream as needed.
+Use `seek()` to change position and `setLength()` to resize the stream. Writes
+beyond the end and length increases fill new gaps with zero bytes. `toString()`
+returns the entire buffer, independent of position, even after `close()`.
 
 ## Run tests
 
