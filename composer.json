@@ -1,8 +1,21 @@
 {
     "name": "mathsgod/light-io",
-    "description": "Text writers for PHP strings and streams",
+    "description": "A synchronous PHP I/O library inspired by .NET System.IO, with filesystem utilities, streams, and text and binary readers and writers.",
+    "keywords": ["io", "filesystem", "streams", "binary", "dotnet"],
     "type": "library",
     "license": "MIT",
+    "homepage": "https://github.com/mathsgod/light-io",
+    "support": {
+        "issues": "https://github.com/mathsgod/light-io/issues",
+        "source": "https://github.com/mathsgod/light-io",
+        "docs": "https://github.com/mathsgod/light-io/tree/main/docs"
+    },
+    "authors": [
+        {
+            "name": "Raymond Chong",
+            "homepage": "https://github.com/mathsgod"
+        }
+    ],
     "require": {
         "php": ">=8.3"
     },
@@ -18,6 +31,7 @@
         "test": "phpunit"
     },
     "suggest": {
-        "ext-inotify": "Enables native Linux filesystem notifications through FileSystemWatcher."
+        "ext-inotify": "Enables native Linux filesystem notifications through FileSystemWatcher.",
+        "ext-iconv": "Enables UTF-16 and UTF-32 encoding support."
     }
 }
