@@ -374,6 +374,33 @@ to get the file size in bytes and `setLength($bytes)` to resize a writable
 file. Resizing preserves the current byte position, even if the file shrinks
 past that position.
 
+## Update a fixed-size buffer in memory
+
+```php
+use Light\IO\BinaryWriter;
+use Light\IO\WritableMemoryStream;
+
+$buffer = str_repeat("\0", 6);
+$stream = new WritableMemoryStream($buffer);
+$writer = new BinaryWriter($stream);
+try {
+    $stream->seek(4);
+    $writer->writeBytes('Hi');
+    $stream->seek(0);
+    $writer->writeInt32(2);
+} finally {
+    $writer->close();
+}
+
+echo bin2hex($buffer), PHP_EOL; // 020000004869
+```
+
+Pass a PHP string variable by reference. Its initial byte count is both the
+stream length and the fixed capacity. Writes update the original variable.
+`setLength()` changes the readable length within that capacity and zero-fills
+newly exposed bytes. Avoid resizing the backing string while the stream is open.
+Closing the stream releases the reference and leaves the bytes in the variable.
+
 ## Run tests
 
 ```sh
